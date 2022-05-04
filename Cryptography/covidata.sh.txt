@@ -1,0 +1,598 @@
+#!/bin/bash
+# Name: Samer Abdulkarim
+# Student Number: 260964596
+
+function errorMsg 
+{
+
+	echo -e "Error:$1\n"
+        echo -e "Script Syntax:"
+        echo -e "./covidata.sh -r procedure id range inputFile outputFile compareFile\n"
+        echo -e "Legal usage examples:"
+        echo -e "./covidata.sh get 35 data.csv result.csv"
+        echo -e "./covidata.sh -r get 35 2020-01 2020-03 data.csv result.csv"
+        echo -e "./covidata.sh compare 10 data.csv result2.csv result.csv"
+	echo -e "./covidata.sh -r compare 10 2020-01 2020-03 data.csv result2.csv result.csv"
+
+	return $1 #Normal Subroutine If Error is PRoduced
+}
+
+#MAIN FUNCTION
+if [[ $1 != "-r" ]] && [[ $1 != "get" ]] && [[ $1 != "compare" ]]; then #Can only be one of three arguments
+	echo "Procedure not provided"
+	errorMsg $1
+	return $0
+fi
+
+if [[ $1 = "get" ]]; then 
+	if [[ $# -ne 4 ]]; then #if 3 arguments are used its an error 
+		echo "Wrong number of arguments"	
+		errorMsg $1 
+		return $0
+	else
+		find $3 | grep -q "." #Supresses the output of find such that grep searches for a comma which every csv file finds
+		if [[ $? -gt 0 ]]; then #if file not found then $? > 1
+			echo "Input file name does not exist"
+			errorMsg $3
+			return $0
+		else
+			grep -q ^$2 $3
+			if [[ $? -gt 0 ]]; then
+				echo "ID not available"
+				errorMsg $2
+				exit $0
+			fi
+
+			grep -i ^$2 $3 > $4 #Searches for lines beginning with the required id
+
+			awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0; print "rowcount,avgconf,avgdeaths,avgtests"} {if (NR>0) {avgconf+=$6;avgdeaths+=$8;avgtests+=$11} else {avgconf=0;avgdeaths=0;avgtests=0}} END {print NR, avgconf/NR, avgdeaths/NR, avgtests/NR}' < $4 >> $4 #adds the values of every column
+		fi
+	fi
+fi
+
+if [[ $1 = "compare" ]]; then
+       	if [[ $# -ne 5 ]]; then
+		echo "Wrong number of arguments"
+		errorMsg $1
+		return $0
+	else
+		find $3 | grep -q "."
+                if [[ $? -gt 0 ]]; then
+                        echo "Input file name does not exist"
+                        errorMsg $3
+			return $0
+                else
+                        grep -q ^$2 $3
+                        if [[ $? -gt 0 ]]; then
+                                errorMsg $2
+				return $0
+                        fi
+
+                        grep -i ^$2 $3 > temp.csv #stores the row data
+
+			awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0; print "rowcount,avgconf,avgdeaths,avgtests"} {if (NR>0) {avgconf+=$6;avgdeaths+=$8;avgtests+=$11} else {avgconf=0;avgdeaths=0;avgtests=0}} END {print NR, avgconf/NR, avgdeaths/NR, avgtests/NR}' < temp.csv >> temp.csv  #adds the values of every column
+			head -n -2 temp.csv > $4 #data of input
+			head -n -2 $5 >> $4 #data of comp
+			tail -n -2 temp.csv >> $4 #stats of input
+			tail -n -2 $5 >> $4 #stats of comp
+			tail -n -4 $4 > temp2.csv #stats of both
+			head -n -2 temp2.csv > d1.csv #stats of input
+			tail -n -1 d1.csv > diffd.csv # stats without headers
+			tail -n -1 temp2.csv >> diffd.csv #stats for comp
+			tail -n -1 diffd.csv > temp3.csv # duplicating
+		      	tail -n -1 d1.csv > temp4.csv	
+			awk 'BEGIN{ FS = ","; OFS = "," } {x=$1*-1;y=$2*-1;z=$3*-1;f=$4*-1} END {print x,y,z,f}' < temp3.csv >> temp4.csv #negative of comp stats
+			echo "diffcount,diffavgconf,diffavgdeath,diffavgtests" >> $4
+			awk 'BEGIN{ FS = ","; OFS = "," }{diffr+=$1;diffc+=$2;diffd+=$3;difft+=$4} END {print diffr,diffc,diffd,difft}' < temp4.csv >> $4
+			rm temp.csv temp2.csv d1.csv diffd.csv temp3.csv temp4.csv  
+		fi
+	fi
+fi
+
+if [[ $1 = "-r" ]]; then #least number of arguments
+	if [[ $2 = "get" ]]; then
+	       if [[ $# -ne 7 ]]; then
+                echo "Wrong number of arguments"
+                errorMsg $1
+		return $0
+
+	else
+
+
+x="$4"
+y="$5"
+yearstart=${x:0:4}
+monthstart=${x:5:2} #subroutine string
+yearend=${y:0:4}
+monthend=${y:5:2}
+echo -n > fort.csv
+
+z=$(expr $monthstart + 0) #convert to integer
+if [[ $yearstart == "2020" ]] && [[ $yearend == "2021" ]]; then #three cases
+        f=$(expr $monthend + 12)
+        sed -e 's/2021-01/2021-13/p' -e 's/2021-02/2021-14/p' -e 's/2021-03/2021-15/p' -e 's/2021-04/2021-16/p' -e 's/2021-05/2021-17/p' -e 's/2021-06/2021-18/p' -e 's/2021-07/2021-19/p' -e 's/2021-08/2021-20/p' -e 's/2021-09/2021-21/p' -e 's/2021-10/2021-22/p' -e 's/2021-11/2021-23/p' -e 's/2021-12/2021-24/p'< $6 > new.csv #switching 2021 months into double digits to iterate using one loop very easily
+
+	awk '{FS=","; OFS=","} {print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19}' < new.csv > newbie
+
+	while [[ $z -le $f ]]; do #while loop that increases z the starting month by 1 until its less than f the last month
+
+        	if [[ $z -lt 10 ]]; then
+                	z=0$z
+        	fi
+        	for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 #loop through 15 days first
+        	do
+                	grep "2020-"$z"-"$j"" < newbie >> fort.csv #grep all the values
+                	grep "2021-"$z"-"$j"" < newbie >> fort.csv
+        	done
+		for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 #loops through last 16 days
+       		do
+	       		grep "2020-"$z"-"$k"" < newbie >> fort.csv
+			grep "2021-"$z"-"$k"" < newbie >> fort.csv
+        	done
+        	z=$(expr $z + 1) #reconverting to int
+	done
+
+	grep -i ^$3 fort.csv  > kaka.csv #id identifier
+
+	z=$(expr $monthstart + 0) #reset z
+
+	
+	while [[ $z -le $f ]]; do
+
+        	if [[ $z -lt 10 ]]; then
+                	z=0$z
+	       	fi
+	echo "rowcount,avgconf,avgdeaths,avgtests" >> kaka.csv
+
+
+		for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+        	do
+                	grep "2020-"$z"-"$j"" < kaka.csv >> tempo.c
+                	grep "2021-"$z"-"$j"" < kaka.csv >> tempo.c
+		done
+
+		awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END {print NR, avgconf/NR, avgdeaths/NR, avgtests/NR }' < tempo.c >> kaka.csv #awk adds the values of the columns
+
+        	for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+        	do
+                	grep "2020-"$z"-"$k"" < kaka.csv >> temp1.c
+                	grep "2021-"$z"-"$k"" < kaka.csv >> temp1.c
+        	done
+
+		awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END {print NR, avgconf/NR, avgdeaths/NR, avgtests/NR}' < temp1.c >> kaka.csv
+
+        z=$(expr $z + 1)
+	done
+	sed -e 's/2021-13/2021-01/p' -e 's/2021-14/2021-02/p' -e 's/2021-15/2021-03/p' -e 's/2021-16/2021-04/p' -e 's/2021-17/2021-05/p' -e 's/2021-18/2021-06/p' -e 's/2021-19/2021-07/p' -e 's/2021-20/2021-08/p' -e 's/2021-21/2021-09/p' -e 's/2021-22/2021-10/p' -e 's/2021-23/2021-11/p' -e 's/2021-24/2021-12/p'< kaka.csv > correct.csv #sed changes the the double digits back into normal months
+
+	rm fort.csv  kaka.csv  newbie  new.csv  temp1.c  tempo.c
+	cat correct.csv > $7
+	rm correct.csv
+fi
+
+if [[ $yearstart == "2020" ]] && [[ $yearend == "2020" ]]; then # this and the other while loop are very similar to the one above
+	f=$(expr $monthend + 0)
+	while [[ $z -le $f ]];do
+		if [[ $z -lt 10 ]]; then
+			z=0$z
+		fi
+
+		for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+        	do
+
+			grep "2020-"$z"-"$j"" < $6 >> fort1.csv
+		done
+
+		for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+                do
+
+                        grep "2020-"$z"-"$k"" < $6 >> fort1.csv
+                done
+		z=$(expr $z + 1)
+	done
+
+	grep -i ^$3 fort1.csv > kaka1.csv
+
+	z=$(expr $monthstart + 0)
+
+	
+	while [[ $z -le $f ]]; do
+		if [[ $z -lt 10 ]]; then
+                        z=0$z
+                fi
+		echo "rowcount,avgconf,avgdeaths,avgtests" >> kaka1.csv
+
+		for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+                do
+                        grep "2020-"$z"-"$j"" < kaka1.csv >> tempo1.c
+                done
+
+
+
+		awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c >> kaka1.csv
+
+		for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+                do
+                        grep "2020-"$z"-"$k"" < kaka1.csv >> temps1.c
+                done
+
+		awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{ if (NR>0) {avgconf+=$6;avgdeaths+=$8;avgtests+=$11}} END { print NR,avgconf/NR,avgdeaths/NR,avgtests/NR }' < temps1.c >> kaka1.csv
+
+		z=$(expr $z + 1)
+        done
+
+	rm  fort.csv  tempo1.c  temps1.c fort1.csv
+	cat kaka1.csv > $7
+	rm kaka1.csv
+
+
+fi
+
+if [[ $yearstart == "2021" ]] && [[ $yearend == "2021" ]]; then
+f=$(expr $monthend + 0)
+        while [[ $z -le $f ]];do
+                if [[ $z -lt 10 ]]; then
+                        z=0$z
+                fi
+
+                for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+                do
+                        grep "2021-"$z"-"$j"" < $6 >> fort2.csv
+
+                done
+
+		for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+                do
+
+                        grep "2021-"$z"-"$k"" < $6 >> fort2.csv
+                done
+
+                z=$(expr $z + 1)
+        done
+
+
+
+	grep -i ^$3 fort2.csv > kaka2.csv
+
+	z=$(expr $monthstart + 0)
+
+        
+        while [[ $z -le $f ]]; do
+                if [[ $z -lt 10 ]]; then
+                        z=0$z
+                fi
+	        echo "rowcount,avgconf,avgdeaths,avgtests" >> kaka2.csv
+
+                for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+                do
+                        grep "2021-"$z"-"$j"" < kaka2.csv >> tempo2.c
+                done
+
+		awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo2.c >> kaka2.csv
+                for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+                do
+                        grep "2021-"$z"-"$k"" < kaka2.csv >> temps2.c #why isnt it grepping
+                done
+
+		awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps2.c >> kaka2.csv
+                z=$(expr $z + 1)
+        done
+rm fort2.csv  fort.csv  tempo2.c  temps2.c
+cat kaka2.csv > $7
+rm kaka2.csv
+fi
+
+
+		fi
+	fi
+
+	if [[ $2 = "compare" ]]; then
+               if [[ $# -ne 8 ]]; then
+                echo "Wrong number of arguments"
+                errorMsg $1
+		return $0
+	else
+x="$4"
+y="$5"
+yearstart=${x:0:4}
+monthstart=${x:5:2} #subroutine string
+yearend=${y:0:4}
+monthend=${y:5:2}
+z=$(expr $monthstart + 0) #convert to integer
+
+if [[ $yearstart == "2020" ]] && [[ $yearend == "2021" ]]; then #three cases
+        f=$(expr $monthend + 12)
+        sed -e 's/2021-01/2021-13/p' -e 's/2021-02/2021-14/p' -e 's/2021-03/2021-15/p' -e 's/2021-04/2021-16/p' -e 's/2021-05/2021-17/p' -e 's/2021-06/2021-18/p' -e 's/2021-07/2021-19/p' -e 's/2021-08/2021-20/p' -e 's/2021-09/2021-21/p' -e 's/2021-10/2021-22/p' -e 's/2021-11/2021-23/p' -e 's/2021-12/2021-24/p'< $6 > new.csv #switching 2021 months into double digits to iterate using one loop very easily
+
+	awk '{FS=","; OFS=","} {print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19}' < new.csv > newbie
+
+	while [[ $z -le $f ]]; do #while loop that increases z the starting month by 1 until its less than f the last month
+
+        	if [[ $z -lt 10 ]]; then
+                	z=0$z
+        	fi
+        	for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 #loop through 15 days first
+        	do
+                	grep "2020-"$z"-"$j"" < newbie >> fort.csv #grep all the values
+                	grep "2021-"$z"-"$j"" < newbie >> fort.csv
+        	done
+		for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 #loops through last 16 days
+       		do
+	       		grep "2020-"$z"-"$k"" < newbie >> fort.csv
+			grep "2021-"$z"-"$k"" < newbie >> fort.csv
+        	done
+        	z=$(expr $z + 1) #reconverting to int
+	done
+
+	grep -i ^$3 fort.csv  > kaka1.csv #id identifier
+
+	z=$(expr $monthstart + 0) #reset z
+	z=$(expr $monthstart + 0) #reset z
+	f=$(expr $monthend + 12) #reset f 
+	l=$(expr $f - $z)
+	l=$(expr $l + $l)
+	
+	cat kaka1.csv > $7
+        head -"$l" $8 >> $7
+
+	
+	while [[ $z -le $f ]]; do
+
+        	if [[ $z -lt 10 ]]; then
+                	z=0$z
+	       	fi
+	echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+
+
+		for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+        	do
+                	grep "2020-"$z"-"$j"" < kaka.csv >> tempo1.c
+                	grep "2021-"$z"-"$j"" < kaka.csv >> tempo1.c
+                	
+                	grep "2020-"$z"-"$j"" < $8 >> tempo1.c
+                	grep "2021-"$z"-"$j"" < $8 >> tempo1.c
+                	
+                	
+                	
+		done
+
+		awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END {print NR, avgconf/NR, avgdeaths/NR, avgtests/NR }' < tempo1.c >> $7 #awk adds the values of the columns
+		
+		echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < uu.c >> $7 #add row and append to input 
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c > neg.c #add rows
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c > rez.csv
+
+                awk 'BEGIN{ FS = ","; OFS = "," } {x=$1*-1;y=$2*-1;z=$3*-1;f=$4*-1} END {print x,y,z,f}' < rez.csv >> neg.c #negative of comp stats
+                echo "diffcount,diffavgconf,diffavgdeath,diffavgtests" >> $7
+                awk 'BEGIN{ FS = ","; OFS = "," }{diffr+=$1;diffc+=$2;diffd+=$3;difft+=$4} END {print diffr,diffc,diffd,difft}' < neg.c >> $7 #add it together
+
+        	for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+        	do
+                	grep "2020-"$z"-"$k"" < kaka1.csv >> temps1.c
+                	grep "2021-"$z"-"$k"" < kaka1.csv >> temps1.c
+                	grep "2020"-"$z"-"$k" < $8 >> uu1.c
+                	grep "2021"-"$z"-"$k" < $8 >> uu1.c
+        	done
+
+		echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c >> $7
+                echo "rowcount,avgconf,avgdeaths,avgtests" >> $7.csv
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < uu1.c >> $7
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c > neg1.c
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c > rez1.csv
+
+                awk 'BEGIN{ FS = ","; OFS = "," } {x=$1*-1;y=$2*-1;z=$3*-1;f=$4*-1} END {print x,y,z,f}' < rez1.csv >> neg1.c #negative of comp stats
+                echo "diffcount,diffavgconf,diffavgdeath,diffavgtests" >> $7
+                awk 'BEGIN{ FS = ","; OFS = "," }{diffr+=$1;diffc+=$2;diffd+=$3;difft+=$4} END {print diffr,diffc,diffd,difft}' < neg1.c >> $7
+
+        z=$(expr $z + 1)
+	done
+	sed -e 's/2021-13/2021-01/p' -e 's/2021-14/2021-02/p' -e 's/2021-15/2021-03/p' -e 's/2021-16/2021-04/p' -e 's/2021-17/2021-05/p' -e 's/2021-18/2021-06/p' -e 's/2021-19/2021-07/p' -e 's/2021-20/2021-08/p' -e 's/2021-21/2021-09/p' -e 's/2021-22/2021-10/p' -e 's/2021-23/2021-11/p' -e 's/2021-24/2021-12/p'< $7 > correct.csv #sed changes the the double digits back into normal months
+
+	rm fort.csv  kaka1.csv  newbie  new.csv  temp1.c  tempo.c
+	cat correct.csv > $7
+	rm correct.csv
+fi
+
+
+if [[ $yearstart == "2021" ]] && [[ $yearend == "2021" ]]; then # this and the other while loop are very similar to the one below
+        f=$(expr $monthend + 0)
+        while [[ $z -le $f ]];do
+                if [[ $z -lt 10 ]]; then
+                        z=0$z
+                fi
+
+                for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+                do
+
+                        grep "2021-"$z"-"$j"" < $6 >> fort1.csv
+                done
+
+                for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+                do
+
+                        grep "2021-"$z"-"$k"" < $6 >> fort1.csv
+                done
+                z=$(expr $z + 1)
+        done
+
+        grep -i ^$3 fort1.csv > kaka1.csv
+
+	z=$(expr $monthstart + 0) #reset z
+	f=$(expr $monthend + 12) #reset f
+	l=$(expr $f - $z)
+	l=$(expr $l + $l) #number of arguments because every month produces 2
+
+        cat kaka1.csv > $7
+        head -"$l" $8 >> $7
+
+
+        while [[ $z -le $f ]]; do
+                if [[ $z -lt 10 ]]; then
+                        z=0$z
+                fi
+
+
+                for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+                do
+                        grep "2021-"$z"-"$j"" < kaka1.csv >> tempo1.c #extract input
+                        grep "2021"-"$z"-"$j" < $8 >> uu.c #extract comp
+                done
+
+                echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c >> $7 #add col and append to input
+                echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < uu.c >> $7 #add row and append to input
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c > neg.c #add rows
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c > rez.csv
+
+                awk 'BEGIN{ FS = ","; OFS = "," } {x=$1*-1;y=$2*-1;z=$3*-1;f=$4*-1} END {print x,y,z,f}' < rez.csv >> neg.c #negative of comp stats
+                echo "diffcount,diffavgconf,diffavgdeath,diffavgtests" >> $7
+                awk 'BEGIN{ FS = ","; OFS = "," }{diffr+=$1;diffc+=$2;diffd+=$3;difft+=$4} END {print diffr,diffc,diffd,difft}' < neg.c >> $7 #add it together
+
+                for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+                do
+                        grep "2021-"$z"-"$k"" < kaka1.csv >> temps1.c
+                        grep "2021"-"$z"-"$k" < $8 >> uu1.c #do same but for days 16-31
+                done
+
+		echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c >> $7
+                echo "rowcount,avgconf,avgdeaths,avgtests" >> kaka1.csv
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < uu1.c >> $7
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c > neg1.c
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c > rez1.csv
+
+                awk 'BEGIN{ FS = ","; OFS = "," } {x=$1*-1;y=$2*-1;z=$3*-1;f=$4*-1} END {print x,y,z,f}' < rez1.csv >> neg1.c #negative of comp stats
+                echo "diffcount,diffavgconf,diffavgdeath,diffavgtests" >> $7
+                awk 'BEGIN{ FS = ","; OFS = "," }{diffr+=$1;diffc+=$2;diffd+=$3;difft+=$4} END {print diffr,diffc,diffd,difft}' < neg1.c >> $7
+
+                z=$(expr $z + 1)
+                done
+                rm  tempo1.c  temps1.c fort1.csv kaka1.csv rez1.csv neg1.c neg.c rez.csv  uu1.c  uu.c #rm temp files
+                fi
+
+		if [[ $yearstart == "2020" ]] && [[ $yearend == "2020" ]]; then # this and the other while loop are very similar to the one above
+        f=$(expr $monthend + 0)
+        while [[ $z -le $f ]];do
+                if [[ $z -lt 10 ]]; then
+                        z=0$z
+                fi
+
+                for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+                do
+
+                        grep "2020-"$z"-"$j"" < $6 >> fort1.csv
+                done
+
+                for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+                do
+
+                        grep "2020-"$z"-"$k"" < $6 >> fort1.csv
+                done
+                z=$(expr $z + 1)
+        done
+
+        grep -i ^$3 fort1.csv > kaka1.csv
+
+	z=$(expr $monthstart + 0) #reset z
+	f=$(expr $monthend + 12)
+	l=$(expr $f - $z)
+	l=$(expr $l + $l)
+	l=$(expr $l + $l)
+        cat kaka1.csv > $7
+        head -"$l" $8 >> $7
+
+        
+
+
+        while [[ $z -le $f ]]; do
+                if [[ $z -lt 10 ]]; then
+                        z=0$z
+                fi
+
+
+                for j in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+                do
+                        grep "2020-"$z"-"$j"" < kaka1.csv >> tempo1.c
+                        grep "2020"-"$z"-"$j" < $8 >> uu.c
+                done
+
+                echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c >> $7
+                echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < uu.c >> $7
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c > neg.c
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < tempo1.c > rez.csv
+
+                awk 'BEGIN{ FS = ","; OFS = "," } {x=$1*-1;y=$2*-1;z=$3*-1;f=$4*-1} END {print x,y,z,f}' < rez.csv >> neg.c #negative of comp stats
+                echo "diffcount,diffavgconf,diffavgdeath,diffavgtests" >> $7
+                awk 'BEGIN{ FS = ","; OFS = "," }{diffr+=$1;diffc+=$2;diffd+=$3;difft+=$4} END {print diffr,diffc,diffd,difft}' < neg.c >> $7
+
+                for k in 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+                do
+                        grep "2020-"$z"-"$k"" < kaka1.csv >> temps1.c
+                        grep "2020"-"$z"-"$k" < $8 >> uu1.c
+                done
+
+		echo "rowcount,avgconf,avgdeaths,avgtests" >> $7
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c >> $7
+                echo "rowcount,avgconf,avgdeaths,avgtests" >> kaka1.csv
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < uu1.c >> $7
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c > neg1.c
+
+                awk 'BEGIN { FS=",";OFS=",";avgconf=0;avgdeaths=0;avgtests=0;}{avgconf+=$6;avgdeaths+=$8;avgtests+=$11} END { if (NR>0) {
+print NR,avgconf/NR,avgdeaths/NR,avgtests/NR} }' < temps1.c > rez1.csv
+
+                awk 'BEGIN{ FS = ","; OFS = "," } {x=$1*-1;y=$2*-1;z=$3*-1;f=$4*-1} END {print x,y,z,f}' < rez1.csv >> neg1.c #negative of comp stats
+                echo "diffcount,diffavgconf,diffavgdeath,diffavgtests" >> $7
+                awk 'BEGIN{ FS = ","; OFS = "," }{diffr+=$1;diffc+=$2;diffd+=$3;difft+=$4} END {print diffr,diffc,diffd,difft}' < neg1.c >> $7
+
+                z=$(expr $z + 1)
+                done
+                rm  tempo1.c  temps1.c fort1.csv kaka1.csv rez1.csv neg1.c neg.c rez.csv  uu1.c  uu.c
+                fi
+	fi
+fi
+
+fi
